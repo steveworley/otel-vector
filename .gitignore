@@ -1,0 +1,8 @@
+.envrc
+.env
+.DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
+php-app/vendor/
+qdrant_storage/

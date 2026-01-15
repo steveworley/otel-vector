@@ -1,0 +1,70 @@
+services:
+  # 1. Telemetry Source
+  php-app:
+    build: ./php-app
+    container_name: php-app
+    ports:
+      - "8080:8000"
+    environment:
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=php-frontend
+    depends_on:
+      - otel-collector
+
+  # 2. OpenTelemetry Collector (The Router)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+
+  # 3. Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  # 4. Custom Vector Ingest Service
+  vector-ingest:
+    build: ./vector-ingest
+    container_name: vector-ingest
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - qdrant
+
+  # 5. Visualization (Aspire Dashboard)
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/nightly/aspire-dashboard:8.0.0
+    container_name: aspire-dashboard
+    ports:
+      - "18888:18888" # Dashboard UI
+      - "4317" # OTLP gRPC receiver (internal map)
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+      - DOTNET_DASHBOARD_OTLP_ENDPOINT_URL=http://0.0.0.0:4317
+
+  # 6. MCP Server (Observability Agent)
+  mcp-server:
+    build: ./mcp-server
+    container_name: mcp-server
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+    depends_on:
+      - qdrant
+    # Keep it running for exec
+    command: [ "tail", "-f", "/dev/null" ]
+
+volumes:
+  qdrant_storage:

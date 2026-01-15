@@ -1,0 +1,39 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+  resource:
+    attributes:
+    - key: application
+      value: php-demo-app
+      action: insert
+
+exporters:
+  # Export to Aspire Dashboard
+  otlp/aspire:
+    endpoint: aspire-dashboard:4317
+    tls:
+      insecure: true
+
+  # Export to Custom Vector Ingest Service
+  otlphttp/vector:
+    endpoint: http://vector-ingest:8000
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [otlp/aspire, otlphttp/vector]
+    logs:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [otlp/aspire] 

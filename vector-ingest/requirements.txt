@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+opentelemetry-proto
+qdrant-client
+sentence-transformers
+protobuf
+google-generativeai
